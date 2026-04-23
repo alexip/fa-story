@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fa Story — a podcast hosted by a tabby named Fafa</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">𓃠</span>
+        <span class="brand-name">Fa Story</span>
+      </div>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#episodes">Episodes</a>
+        <a href="#about">About</a>
+        <a href="#subscribe">Subscribe</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="art-panel" aria-label="Animated cat artwork">
+        <canvas id="cat-canvas"></canvas>
+        <div class="art-overlay">
+          <p class="eyebrow">Season 3 · Sun Spots &amp; Suitcases</p>
+          <h1 class="art-title">Fa Story.<br />Told by a tabby.</h1>
+          <p class="art-sub">
+            Move your cursor — Fafa will come see what you're doing.
+          </p>
+        </div>
+        <div class="art-credit">starring Fafa · live canvas, never the same twice</div>
+      </section>
+
+      <aside class="player" aria-label="Latest episode player">
+        <div class="player-meta">
+          <span class="player-eyebrow">Latest episode · #42</span>
+          <h2 class="player-title">The Suitcase Was Mine First</h2>
+          <p class="player-desc">
+            Fafa defends her claim over a half-packed carry-on, and we ramble
+            about territory, travel, and the politics of warm laundry.
+          </p>
+        </div>
+
+        <div class="player-controls" role="group" aria-label="Playback">
+          <button id="play-btn" class="play-btn" aria-label="Play episode" aria-pressed="false">
+            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5.5v13l11-6.5z" fill="currentColor" />
+            </svg>
+            <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor" />
+            </svg>
+          </button>
+          <div class="player-bar">
+            <div class="player-progress">
+              <div id="progress-fill" class="player-progress-fill"></div>
+              <input
+                id="progress-input"
+                class="player-progress-input"
+                type="range"
+                min="0"
+                max="1000"
+                value="0"
+                step="1"
+                aria-label="Seek"
+              />
+            </div>
+            <div class="player-times">
+              <span id="time-current">0:00</span>
+              <span id="time-total">0:00</span>
+            </div>
+          </div>
+        </div>
+
+        <audio id="episode-audio" preload="metadata"></audio>
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <span>© Fa Story</span>
+      <span class="footer-dot" aria-hidden="true">·</span>
+      <span>recorded from a sunbeam, mostly</span>
+    </footer>
+
+    <script src="cat.js" defer></script>
+    <script src="player.js" defer></script>
+  </body>
+</html>
