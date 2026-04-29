@@ -8,7 +8,8 @@
 
   // Target the cat is "looking at" / walking toward. Follows cursor with easing.
   const target = { x: 0, y: 0, active: false };
-  // Cat position (smoothed).
+
+  // Cat position (smoothed) + behavior state.
   const cat = {
     x: 0,
     y: 0,
@@ -17,12 +18,39 @@
     facing: 1, // 1 = right, -1 = left
     phase: 0, // walk/breath cycle
     tailPhase: 0,
+    scratchPhase: 0,
     blink: 0,
     blinkTimer: 0,
+    smile: 0,
+    state: "wander", // wander | follow | travel | sleep | scratch
+    travelTo: null, // 'bed' | 'scratch' when state === 'travel'
+    actionTimer: 0,
+    idleTimer: 0,
+    idleThreshold: 6000,
+    spawnTimer: 0,
+    tapTimer: 0,
+    holdAction: false,
+  };
+
+  const TAP_DURATION = 800;
+
+  // Scenery — bed and scratch post anchors. Recomputed on resize.
+  const scenery = {
+    bed: { x: 0, y: 0 },
+    scratch: { x: 0, y: 0, postH: 110, postW: 16 },
   };
 
   // Ambient dust motes / fireflies drifting in the art panel.
   const motes = [];
+  // Ephemeral particles — sleep z's and scratch flakes.
+  const fx = [];
+
+  function layoutScenery() {
+    scenery.bed.x = width * 0.88;
+    scenery.bed.y = height * 0.84;
+    scenery.scratch.x = width * 0.56;
+    scenery.scratch.y = height * 0.80;
+  }
 
   function resize() {
     const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
@@ -33,20 +61,19 @@
     canvas.height = Math.floor(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    layoutScenery();
+
     if (!target.active) {
-      target.x = width * 0.62;
+      target.x = width * 0.5;
       target.y = height * 0.55;
     }
     if (cat.x === 0 && cat.y === 0) {
-      cat.x = width * 0.35;
-      cat.y = height * 0.6;
+      cat.x = width * 0.4;
+      cat.y = height * 0.65;
     }
 
-    // Seed motes relative to panel size.
     const targetCount = Math.round((width * height) / 22000);
-    while (motes.length < targetCount) {
-      motes.push(makeMote());
-    }
+    while (motes.length < targetCount) motes.push(makeMote());
     motes.length = Math.min(motes.length, targetCount);
   }
 
@@ -57,29 +84,140 @@
       vx: (Math.random() - 0.5) * 0.15,
       vy: (Math.random() - 0.5) * 0.1 - 0.05,
       r: Math.random() * 1.4 + 0.3,
-      // Warm dust motes in a sunbeam: honey gold or soft leaf-green
       hue: Math.random() < 0.6 ? 38 : 92,
-      life: Math.random() * 1,
       twinkle: Math.random() * Math.PI * 2,
     };
   }
 
-  // --- Input ----------------------------------------------------------------
+  // --- Behavior state helpers ---------------------------------------------
+
+  function startWander() {
+    cat.state = "wander";
+    cat.idleTimer = 0;
+    cat.idleThreshold = 5500 + Math.random() * 4000;
+    cat.holdAction = false;
+  }
+
+  function pickDestination() {
+    cat.state = "travel";
+    cat.travelTo = Math.random() < 0.55 ? "bed" : "scratch";
+    cat.idleTimer = 0;
+    cat.holdAction = false;
+  }
+
+  function hitBed(px, py) {
+    const dx = (px - scenery.bed.x) / 60;
+    const dy = (py - (scenery.bed.y + 2)) / 22;
+    return dx * dx + dy * dy < 1;
+  }
+
+  function hitScratch(px, py) {
+    const x = scenery.scratch.x;
+    const baseY = scenery.scratch.y;
+    const postH = scenery.scratch.postH;
+    return (
+      px > x - 28 && px < x + 28 &&
+      py > baseY - postH - 6 && py < baseY + 12
+    );
+  }
+
+  function enterSleep() {
+    cat.state = "sleep";
+    cat.actionTimer = 9000 + Math.random() * 7000;
+    cat.x = scenery.bed.x;
+    cat.y = scenery.bed.y - 6;
+    cat.vx = 0;
+    cat.vy = 0;
+    cat.facing = -1;
+    cat.spawnTimer = 600;
+  }
+
+  function enterScratch() {
+    cat.state = "scratch";
+    cat.actionTimer = 6500 + Math.random() * 4000;
+    cat.x = scenery.scratch.x + 28;
+    cat.y = scenery.scratch.y - 6;
+    cat.vx = 0;
+    cat.vy = 0;
+    cat.facing = -1; // post is to the left of the cat
+    cat.spawnTimer = 80;
+  }
+
+  function wakeIfResting() {
+    if (
+      cat.state === "sleep" ||
+      cat.state === "scratch" ||
+      cat.state === "travel"
+    ) {
+      cat.state = "follow";
+      cat.holdAction = false;
+    }
+  }
+
+  // --- Input ---------------------------------------------------------------
+
   canvas.addEventListener("pointermove", (e) => {
     const rect = canvas.getBoundingClientRect();
     target.x = e.clientX - rect.left;
     target.y = e.clientY - rect.top;
     target.active = true;
+    // Cursor movement alone shouldn't override a user-commanded action.
+    if (cat.holdAction) return;
+    wakeIfResting();
+    cat.state = "follow";
   });
   canvas.addEventListener("pointerleave", () => {
     target.active = false;
+    if (cat.state === "follow") startWander();
   });
-  // Idle wander when the cursor isn't in the panel.
+  canvas.addEventListener("pointerdown", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const onCat = Math.hypot(px - cat.x, py - cat.y) < 70;
+
+    // While resting, any click wakes her — tap on the cat also pops a reaction.
+    if (cat.state === "sleep" || cat.state === "scratch") {
+      cat.state = "follow";
+      cat.holdAction = false;
+      cat.smile = 1;
+      if (onCat) triggerTap();
+      return;
+    }
+
+    // Awake: explicit destination clicks send her there and hold the state.
+    if (hitBed(px, py)) {
+      cat.state = "travel";
+      cat.travelTo = "bed";
+      cat.holdAction = true;
+      return;
+    }
+    if (hitScratch(px, py)) {
+      cat.state = "travel";
+      cat.travelTo = "scratch";
+      cat.holdAction = true;
+      return;
+    }
+
+    // Tap on the cat — heart reaction, then follow cursor.
+    if (onCat) {
+      triggerTap();
+      cat.state = "follow";
+      cat.smile = 1;
+      return;
+    }
+
+    // Plain click on empty space — just follow cursor.
+    cat.state = "follow";
+    cat.holdAction = false;
+    cat.smile = 1;
+  });
+
   let wanderT = 0;
 
-  // --- Drawing helpers ------------------------------------------------------
+  // --- Drawing helpers -----------------------------------------------------
+
   function drawBackdrop() {
-    // Warm sunbeam glow + vignette.
     const grad = ctx.createRadialGradient(
       width * 0.7,
       height * 0.25,
@@ -112,13 +250,255 @@
     }
   }
 
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
 
-  // Fafa's palette — brown tabby with white markings
-  const FUR_BASE = "#8a5e38";       // warm tabby brown
-  const FUR_SHADE = "#6a4528";      // shaded brown
-  const FUR_STRIPE = "#2b1a10";     // near-black stripes
-  const FUR_WHITE = "#f2e6d2";      // cream/white bib, paws, muzzle
-  const FUR_WHITE_SHADE = "#d8c7a8"; // subtle shadow on white
+  function drawBed(b) {
+    ctx.save();
+    // Floor shadow
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y + 18, 60, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer rim — warm rust
+    ctx.fillStyle = "#5a2f24";
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y + 4, 58, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner cushion — warm cream
+    ctx.fillStyle = "#e2b89a";
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y - 1, 50, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Center depression — softer dip
+    ctx.fillStyle = "#b88a6e";
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y + 1, 36, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stitched rim
+    ctx.strokeStyle = "rgba(255, 230, 200, 0.45)";
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y + 4, 54, 17, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  function drawScratchPost(p) {
+    ctx.save();
+    const baseY = p.y;
+    const postH = p.postH;
+    const postW = p.postW;
+    const postX = p.x - postW / 2;
+    const postTop = baseY - postH;
+
+    // Floor shadow
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.beginPath();
+    ctx.ellipse(p.x, baseY + 7, 30, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wooden base
+    ctx.fillStyle = "#5e3e22";
+    roundRect(p.x - 28, baseY - 4, 56, 12, 3);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255, 220, 170, 0.1)";
+    roundRect(p.x - 28, baseY - 4, 56, 4, 3);
+    ctx.fill();
+
+    // Sisal-wrapped post body
+    const ropeGrad = ctx.createLinearGradient(postX, 0, postX + postW, 0);
+    ropeGrad.addColorStop(0, "#6e4a26");
+    ropeGrad.addColorStop(0.5, "#a07a48");
+    ropeGrad.addColorStop(1, "#6e4a26");
+    ctx.fillStyle = ropeGrad;
+    ctx.fillRect(postX, postTop, postW, postH);
+
+    // Rope bands
+    ctx.strokeStyle = "rgba(50, 30, 12, 0.7)";
+    ctx.lineWidth = 1;
+    for (let y = postTop + 3; y < baseY - 3; y += 4) {
+      ctx.beginPath();
+      ctx.moveTo(postX, y);
+      ctx.lineTo(postX + postW, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255, 220, 170, 0.18)";
+    for (let y = postTop + 3; y < baseY - 3; y += 4) {
+      ctx.beginPath();
+      ctx.moveTo(postX + 2, y - 1);
+      ctx.lineTo(postX + postW - 2, y - 1);
+      ctx.stroke();
+    }
+
+    // Top cap
+    ctx.fillStyle = "#5e3e22";
+    roundRect(postX - 1, postTop - 4, postW + 2, 5, 2);
+    ctx.fill();
+
+    // Pre-existing claw scratches
+    ctx.strokeStyle = "rgba(40, 22, 10, 0.45)";
+    ctx.lineWidth = 0.7;
+    for (let i = 0; i < 4; i++) {
+      const yy = postTop + 28 + i * 14;
+      ctx.beginPath();
+      ctx.moveTo(postX + 2, yy);
+      ctx.lineTo(postX + postW - 2, yy + 2);
+      ctx.stroke();
+    }
+
+    // Hanging string + green pom-pom toy (gentle sway)
+    const sway = Math.sin(performance.now() * 0.002) * 4;
+    const stringStartX = p.x + 1;
+    const stringStartY = postTop - 2;
+    const tasselX = p.x + 6 + sway;
+    const tasselY = postTop + 16;
+    ctx.strokeStyle = "rgba(245, 230, 200, 0.5)";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(stringStartX, stringStartY);
+    ctx.lineTo(tasselX, tasselY);
+    ctx.stroke();
+    ctx.fillStyle = "#9cc26a";
+    ctx.beginPath();
+    ctx.arc(tasselX, tasselY, 3.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255, 255, 200, 0.45)";
+    ctx.beginPath();
+    ctx.arc(tasselX - 1, tasselY - 1.2, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function spawnZ() {
+    fx.push({
+      type: "z",
+      x: cat.x + (cat.facing === -1 ? -8 : 16),
+      y: cat.y - 18,
+      vx: 0.02,
+      vy: -0.05,
+      life: 0,
+      maxLife: 2400,
+      size: 11 + Math.random() * 4,
+      drift: Math.random() * Math.PI * 2,
+    });
+  }
+
+  function spawnFlake() {
+    const sx = scenery.scratch.x + (Math.random() - 0.5) * 6;
+    const sy = scenery.scratch.y - 30 - Math.random() * 60;
+    fx.push({
+      type: "flake",
+      x: sx,
+      y: sy,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: 0.04 + Math.random() * 0.1,
+      life: 0,
+      maxLife: 700 + Math.random() * 300,
+    });
+  }
+
+  function spawnHeart() {
+    fx.push({
+      type: "heart",
+      x: cat.x + (Math.random() - 0.5) * 28,
+      y: cat.y - 26,
+      vx: (Math.random() - 0.5) * 0.08,
+      vy: -0.07 - Math.random() * 0.04,
+      life: 0,
+      maxLife: 1300 + Math.random() * 400,
+      size: 4 + Math.random() * 2.5,
+      drift: Math.random() * Math.PI * 2,
+    });
+  }
+
+  function triggerTap() {
+    cat.tapTimer = TAP_DURATION;
+    cat.blink = 0;
+    cat.smile = 1;
+    for (let i = 0; i < 4; i++) spawnHeart();
+  }
+
+  function updateFx(dt) {
+    for (let i = fx.length - 1; i >= 0; i--) {
+      const f = fx[i];
+      f.life += dt;
+      if (f.life >= f.maxLife) {
+        fx.splice(i, 1);
+        continue;
+      }
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+      if (f.type === "z") {
+        f.drift += dt * 0.003;
+        f.x += Math.sin(f.drift) * 0.04 * dt;
+      } else if (f.type === "heart") {
+        f.drift += dt * 0.005;
+        f.x += Math.sin(f.drift) * 0.05 * dt;
+      }
+    }
+  }
+
+  function drawFx() {
+    for (const f of fx) {
+      const t = f.life / f.maxLife;
+      if (f.type === "z") {
+        const a = (1 - t) * 0.75;
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.fillStyle = "#ecdcb6";
+        ctx.font = `italic ${f.size}px "Fraunces", Georgia, serif`;
+        ctx.fillText("z", f.x, f.y);
+        ctx.restore();
+      } else if (f.type === "flake") {
+        const a = (1 - t) * 0.6;
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.fillStyle = "#a07a48";
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (f.type === "heart") {
+        const a = (1 - t) * 0.85;
+        const pop = Math.min(1, f.life / 180);
+        const s = f.size * (0.5 + 0.6 * pop);
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.fillStyle = "#e35d6a";
+        ctx.beginPath();
+        ctx.moveTo(f.x, f.y + s * 0.3);
+        ctx.bezierCurveTo(f.x - s, f.y - s * 0.4, f.x - s * 1.4, f.y + s * 0.4, f.x, f.y + s * 1.2);
+        ctx.bezierCurveTo(f.x + s * 1.4, f.y + s * 0.4, f.x + s, f.y - s * 0.4, f.x, f.y + s * 0.3);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255, 240, 230, 0.7)";
+        ctx.beginPath();
+        ctx.arc(f.x - s * 0.4, f.y + s * 0.2, s * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  // --- Cat palette --------------------------------------------------------
+  const FUR_BASE = "#8a5e38";
+  const FUR_SHADE = "#6a4528";
+  const FUR_STRIPE = "#2b1a10";
+  const FUR_WHITE = "#f2e6d2";
+  const FUR_WHITE_SHADE = "#d8c7a8";
   const EAR_PINK = "#c88a7a";
   const NOSE_PINK = "#d6907e";
   const EYE_GREEN = "#a3c96a";
@@ -136,18 +516,53 @@
     ctx.restore();
   }
 
+  function bezierPoint(t, p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y) {
+    const u = 1 - t;
+    const tt = t * t;
+    const uu = u * u;
+    const uuu = uu * u;
+    const ttt = tt * t;
+    return {
+      x: uuu * p0x + 3 * uu * t * p1x + 3 * u * tt * p2x + ttt * p3x,
+      y: uuu * p0y + 3 * uu * t * p1y + 3 * u * tt * p2y + ttt * p3y,
+    };
+  }
+
   function drawCat() {
-    const bob = Math.sin(cat.phase) * 1.6;
-    const legSwing = Math.sin(cat.phase) * 6;
-    const tail = Math.sin(cat.tailPhase) * 0.55;
+    const sleeping = cat.state === "sleep";
+    const scratching = cat.state === "scratch";
+
+    const breath = Math.sin(cat.tailPhase * 0.5) * 0.6;
+    const tapBoost = Math.max(0, cat.tapTimer / TAP_DURATION);
+    const tapJump = -12 * Math.sin(tapBoost * Math.PI);
+    const bob = (sleeping ? breath : Math.sin(cat.phase) * 1.6) + tapJump;
+    const legSwing = sleeping
+      ? 0
+      : scratching
+        ? Math.sin(cat.scratchPhase) * 12
+        : Math.sin(cat.phase) * 6;
+    const armSwing = scratching ? Math.sin(cat.scratchPhase + Math.PI) * 10 : 0;
+    const tail = sleeping
+      ? Math.sin(cat.tailPhase * 0.3) * 0.12
+      : Math.sin(cat.tailPhase) * 0.55;
 
     ctx.save();
     ctx.translate(cat.x, cat.y + bob);
-    ctx.scale(cat.facing, 1);
+    if (sleeping) {
+      // Loaf pose: low and squished, eyes closed
+      ctx.scale(cat.facing, 0.62);
+      ctx.translate(0, 14);
+    } else if (scratching) {
+      ctx.scale(cat.facing, 1);
+      ctx.rotate(-0.18); // lean back into the post
+      ctx.translate(0, -2);
+    } else {
+      ctx.scale(cat.facing, 1);
+    }
 
     // Ground shadow
     ctx.save();
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = sleeping ? 0 : 0.3;
     ctx.fillStyle = "rgba(0,0,0,0.55)";
     ctx.beginPath();
     ctx.ellipse(-2, 30, 42, 6, 0, 0, Math.PI * 2);
@@ -168,14 +583,12 @@
       -56 + tail * 14, -54 + tail * 18
     );
     ctx.stroke();
-    // Tail rings
     ctx.save();
     ctx.strokeStyle = FUR_STRIPE;
     ctx.lineWidth = 10;
     const tailRings = 4;
     for (let i = 1; i <= tailRings; i++) {
       const t = i / (tailRings + 1);
-      // sample a short segment along the tail curve
       const segA = t - 0.03;
       const segB = t + 0.03;
       const p0 = bezierPoint(segA, -38, 4, -62, -8 + tail * 12, -78, -30 + tail * 28, -56 + tail * 14, -54 + tail * 18);
@@ -186,7 +599,6 @@
       ctx.stroke();
     }
     ctx.restore();
-    // Tail tip highlight
     ctx.strokeStyle = "rgba(255, 220, 170, 0.22)";
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -199,7 +611,7 @@
     ctx.stroke();
     ctx.restore();
 
-    // --- Back legs (tabby with white socks)
+    // Back legs
     ctx.fillStyle = FUR_BASE;
     ctx.beginPath();
     ctx.ellipse(-22, 24 + legSwing * 0.4, 8, 11, 0, 0, Math.PI * 2);
@@ -207,7 +619,6 @@
     ctx.beginPath();
     ctx.ellipse(-34, 24 - legSwing * 0.4, 8, 11, 0, 0, Math.PI * 2);
     ctx.fill();
-    // White socks
     ctx.fillStyle = FUR_WHITE;
     ctx.beginPath();
     ctx.ellipse(-22, 30 + legSwing * 0.4, 7, 5, 0, 0, Math.PI * 2);
@@ -216,24 +627,23 @@
     ctx.ellipse(-34, 30 - legSwing * 0.4, 7, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // --- Front legs
+    // Front legs (paws lift higher when scratching)
     ctx.fillStyle = FUR_BASE;
     ctx.beginPath();
-    ctx.ellipse(18, 24 - legSwing * 0.4, 7.5, 12, 0, 0, Math.PI * 2);
+    ctx.ellipse(18, 24 - legSwing * 0.4 - armSwing * 0.4, 7.5, 12, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(28, 24 + legSwing * 0.4, 7.5, 12, 0, 0, Math.PI * 2);
+    ctx.ellipse(28, 24 + legSwing * 0.4 + armSwing * 0.4, 7.5, 12, 0, 0, Math.PI * 2);
     ctx.fill();
-    // White mitts
     ctx.fillStyle = FUR_WHITE;
     ctx.beginPath();
-    ctx.ellipse(18, 31 - legSwing * 0.4, 6.5, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(18, 31 - legSwing * 0.4 - armSwing * 0.4, 6.5, 5, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(28, 31 + legSwing * 0.4, 6.5, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(28, 31 + legSwing * 0.4 + armSwing * 0.4, 6.5, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // --- Body (tabby brown)
+    // Body
     ctx.beginPath();
     ctx.fillStyle = FUR_BASE;
     ctx.ellipse(-4, 8, 40, 21, -0.08, 0, Math.PI * 2);
@@ -244,24 +654,21 @@
     ctx.beginPath();
     ctx.ellipse(-4, 8, 40, 21, -0.08, 0, Math.PI * 2);
     ctx.clip();
-    // Horizontal arching stripes across the back
     const stripePositions = [-28, -18, -8, 2, 12, 22];
     for (const sx of stripePositions) {
       drawStripe(sx, -2, 4.5, 13, -0.08, 0.85);
     }
-    // Lower flank stripes, slightly thinner
     for (const sx of [-24, -10, 6, 20]) {
       drawStripe(sx, 14, 3.5, 8, -0.08, 0.55);
     }
     ctx.restore();
 
-    // White belly patch — big cream oval on lower/front underside
+    // White belly patch
     ctx.save();
     ctx.fillStyle = FUR_WHITE;
     ctx.beginPath();
     ctx.ellipse(6, 18, 24, 10, -0.06, 0, Math.PI * 2);
     ctx.fill();
-    // Soft edge blend
     ctx.globalAlpha = 0.35;
     ctx.fillStyle = FUR_WHITE_SHADE;
     ctx.beginPath();
@@ -269,7 +676,7 @@
     ctx.fill();
     ctx.restore();
 
-    // Body highlight (sunbeam)
+    // Body sunbeam highlight
     ctx.save();
     ctx.globalAlpha = 0.22;
     const bodyGrad = ctx.createLinearGradient(-40, -10, 30, 18);
@@ -281,13 +688,13 @@
     ctx.fill();
     ctx.restore();
 
-    // --- Head (tabby)
+    // Head
     ctx.fillStyle = FUR_BASE;
     ctx.beginPath();
     ctx.ellipse(28, -6, 19, 18, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Ears (outer)
+    // Outer ears
     ctx.beginPath();
     ctx.moveTo(15, -17);
     ctx.lineTo(20, -33);
@@ -300,7 +707,7 @@
     ctx.lineTo(43, -15);
     ctx.closePath();
     ctx.fill();
-    // Inner ears — pink
+    // Inner ears
     ctx.fillStyle = EAR_PINK;
     ctx.beginPath();
     ctx.moveTo(18, -19);
@@ -315,7 +722,7 @@
     ctx.closePath();
     ctx.fill();
 
-    // Forehead "M" tabby marking
+    // Forehead M + cheek stripes
     ctx.save();
     ctx.strokeStyle = FUR_STRIPE;
     ctx.lineCap = "round";
@@ -329,7 +736,6 @@
     ctx.lineTo(31, -10);
     ctx.lineTo(34, -14);
     ctx.stroke();
-    // Cheek stripes
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(18, -6);
@@ -339,41 +745,44 @@
     ctx.stroke();
     ctx.restore();
 
-    // White muzzle + chin
+    // White muzzle + chest bib
     ctx.fillStyle = FUR_WHITE;
     ctx.beginPath();
     ctx.ellipse(34, 3, 10, 6, 0, 0, Math.PI * 2);
     ctx.fill();
-    // White chest bib (continues from body white)
     ctx.beginPath();
     ctx.ellipse(22, 13, 10, 8, 0.1, 0, Math.PI * 2);
     ctx.fill();
 
-    // --- Eyes: green, blink-aware
-    const eyeOpen = 1 - cat.blink;
+    // Eyes — closed when sleeping, otherwise green with tracking pupils
+    const renderBlink = sleeping ? 1 : cat.blink * (1 - tapBoost);
+    const eyeOpen = 1 - renderBlink;
+    const eyeScale = 1 + 0.35 * tapBoost;
     const eyeY = -7;
     const leftEyeX = 25;
     const rightEyeX = 37;
     if (eyeOpen > 0.05) {
-      // Green iris with subtle glow
       ctx.save();
-      const eyeGrad = ctx.createRadialGradient(0, 0, 0.5, 0, 0, 3.2);
-      eyeGrad.addColorStop(0, EYE_GREEN);
-      eyeGrad.addColorStop(1, EYE_GREEN_DEEP);
       ctx.fillStyle = EYE_GREEN;
       ctx.shadowColor = "rgba(163, 201, 106, 0.5)";
       ctx.shadowBlur = 6;
       ctx.beginPath();
-      ctx.ellipse(leftEyeX, eyeY, 2.6, 3.4 * eyeOpen, 0, 0, Math.PI * 2);
+      ctx.ellipse(leftEyeX, eyeY, 2.6 * eyeScale, 3.4 * eyeOpen * eyeScale, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.ellipse(rightEyeX, eyeY, 2.6, 3.4 * eyeOpen, 0, 0, Math.PI * 2);
+      ctx.ellipse(rightEyeX, eyeY, 2.6 * eyeScale, 3.4 * eyeOpen * eyeScale, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
-      // Pupils — vertical slits, tracking target
-      const dx = (target.x - cat.x) * cat.facing;
-      const dy = target.y - cat.y;
+      // Pupils — track the post when scratching, otherwise the target
+      let lookX = target.x;
+      let lookY = target.y;
+      if (scratching) {
+        lookX = scenery.scratch.x;
+        lookY = scenery.scratch.y - scenery.scratch.postH * 0.5;
+      }
+      const dx = (lookX - cat.x) * cat.facing;
+      const dy = lookY - cat.y;
       const len = Math.max(1, Math.hypot(dx, dy));
       const px = (dx / len) * 1.0;
       const py = (dy / len) * 1.4;
@@ -384,7 +793,6 @@
       ctx.beginPath();
       ctx.ellipse(rightEyeX + px, eyeY + py, 0.8, 2.6 * eyeOpen, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Catchlights
       ctx.fillStyle = "rgba(255, 255, 240, 0.9)";
       ctx.beginPath();
       ctx.arc(leftEyeX - 0.8, eyeY - 1.2, 0.6, 0, Math.PI * 2);
@@ -393,7 +801,7 @@
       ctx.arc(rightEyeX - 0.8, eyeY - 1.2, 0.6, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // Closed eyes — small arcs
+      // Closed eye arcs — happy curves when sleeping
       ctx.strokeStyle = FUR_STRIPE;
       ctx.lineWidth = 1.2;
       ctx.beginPath();
@@ -404,7 +812,7 @@
       ctx.stroke();
     }
 
-    // Nose — pink triangle
+    // Nose
     ctx.fillStyle = NOSE_PINK;
     ctx.beginPath();
     ctx.moveTo(30, 0);
@@ -413,15 +821,26 @@
     ctx.closePath();
     ctx.fill();
 
-    // Mouth line
-    ctx.strokeStyle = FUR_STRIPE;
-    ctx.lineWidth = 0.9;
-    ctx.beginPath();
-    ctx.moveTo(32, 3);
-    ctx.quadraticCurveTo(29, 6, 26, 5);
-    ctx.moveTo(32, 3);
-    ctx.quadraticCurveTo(35, 6, 38, 5);
-    ctx.stroke();
+    // Mouth — opens into a chirp when tapped
+    if (tapBoost > 0.15) {
+      ctx.fillStyle = "#3a1e12";
+      ctx.beginPath();
+      ctx.ellipse(32, 5, 2.4 * tapBoost, 2.8 * tapBoost, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = NOSE_PINK;
+      ctx.beginPath();
+      ctx.ellipse(32, 6.4, 1.4 * tapBoost, 1.2 * tapBoost, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = FUR_STRIPE;
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(32, 3);
+      ctx.quadraticCurveTo(29, 6, 26, 5);
+      ctx.moveTo(32, 3);
+      ctx.quadraticCurveTo(35, 6, 38, 5);
+      ctx.stroke();
+    }
 
     // Whiskers
     ctx.strokeStyle = "rgba(245, 237, 224, 0.7)";
@@ -440,66 +859,112 @@
     ctx.restore();
   }
 
-  function bezierPoint(t, p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y) {
-    const u = 1 - t;
-    const tt = t * t;
-    const uu = u * u;
-    const uuu = uu * u;
-    const ttt = tt * t;
-    return {
-      x: uuu * p0x + 3 * uu * t * p1x + 3 * u * tt * p2x + ttt * p3x,
-      y: uuu * p0y + 3 * uu * t * p1y + 3 * u * tt * p2y + ttt * p3y,
-    };
-  }
-
-  // --- Tick -----------------------------------------------------------------
+  // --- Tick ----------------------------------------------------------------
   let last = performance.now();
   function tick(now) {
     const dt = Math.min(48, now - last);
     last = now;
 
-    // Idle wandering target
-    if (!target.active) {
+    // --- State updates: pick where the cat is heading / what she's doing
+    if (cat.state === "follow") {
+      // target.x/y already set by pointermove
+      cat.smile = Math.min(1, cat.smile + dt * 0.002);
+    } else if (cat.state === "wander") {
       wanderT += dt * 0.0006;
       target.x = width * (0.5 + Math.cos(wanderT) * 0.28);
       target.y = height * (0.55 + Math.sin(wanderT * 1.3) * 0.18);
+      cat.smile = Math.max(0, cat.smile - dt * 0.001);
+      cat.idleTimer += dt;
+      if (cat.idleTimer >= cat.idleThreshold) pickDestination();
+    } else if (cat.state === "travel") {
+      const dest = cat.travelTo === "bed" ? scenery.bed : scenery.scratch;
+      const approachX = cat.travelTo === "bed" ? dest.x : dest.x + 28;
+      const approachY = cat.travelTo === "bed" ? dest.y - 6 : dest.y - 6;
+      target.x = approachX;
+      target.y = approachY;
+      const dist = Math.hypot(approachX - cat.x, approachY - cat.y);
+      if (dist < 8) {
+        if (cat.travelTo === "bed") enterSleep();
+        else enterScratch();
+      }
+      cat.smile = Math.max(0, cat.smile - dt * 0.001);
+    } else if (cat.state === "sleep" || cat.state === "scratch") {
+      if (!cat.holdAction) cat.actionTimer -= dt;
+      cat.spawnTimer -= dt;
+      if (cat.spawnTimer <= 0) {
+        if (cat.state === "sleep") {
+          spawnZ();
+          cat.spawnTimer = 1100 + Math.random() * 500;
+        } else {
+          spawnFlake();
+          cat.spawnTimer = 50 + Math.random() * 80;
+        }
+      }
+      if (!cat.holdAction && cat.actionTimer <= 0) startWander();
     }
 
-    // Cat chases target with easing, keeping a small standoff distance.
-    const dx = target.x - cat.x;
-    const dy = target.y - cat.y;
-    const dist = Math.hypot(dx, dy);
-    const standoff = 80;
-    const pull = Math.max(0, (dist - standoff) / dist || 0);
-    const ax = dx * pull * 0.0009 * dt;
-    const ay = dy * pull * 0.0009 * dt;
-    cat.vx = cat.vx * 0.86 + ax;
-    cat.vy = cat.vy * 0.86 + ay;
-    cat.x += cat.vx * dt;
-    cat.y += cat.vy * dt;
+    // --- Motion: chase target (skipped while resting)
+    if (cat.state === "sleep" || cat.state === "scratch") {
+      // Lock to anchor; bleed off any residual velocity.
+      cat.vx *= 0.7;
+      cat.vy *= 0.7;
+    } else {
+      const dx = target.x - cat.x;
+      const dy = target.y - cat.y;
+      const dist = Math.hypot(dx, dy);
+      const standoff = cat.state === "travel" ? 4 : 80;
+      const pull = dist > 0 ? Math.max(0, (dist - standoff) / dist) : 0;
+      const accel = cat.state === "travel" ? 0.00035 : 0.0009;
+      const ax = dx * pull * accel * dt;
+      const ay = dy * pull * accel * dt;
+      cat.vx = cat.vx * 0.86 + ax;
+      cat.vy = cat.vy * 0.86 + ay;
+      // Cap speed so the cat can't slingshot past her destination.
+      const maxSpeed = 0.35;
+      const sp = Math.hypot(cat.vx, cat.vy);
+      if (sp > maxSpeed) {
+        cat.vx = (cat.vx / sp) * maxSpeed;
+        cat.vy = (cat.vy / sp) * maxSpeed;
+      }
+      cat.x += cat.vx * dt;
+      cat.y += cat.vy * dt;
+      // Stay inside the panel.
+      cat.x = Math.max(40, Math.min(width - 40, cat.x));
+      cat.y = Math.max(40, Math.min(height - 30, cat.y));
+      if (Math.abs(cat.vx) > 0.02) cat.facing = cat.vx > 0 ? 1 : -1;
+    }
 
     const speed = Math.hypot(cat.vx, cat.vy);
-    if (Math.abs(cat.vx) > 0.02) cat.facing = cat.vx > 0 ? 1 : -1;
-
-    // Cycles
     cat.phase += dt * (0.004 + speed * 0.6);
-    cat.tailPhase += dt * 0.003;
-
-    // Blink occasionally
-    cat.blinkTimer -= dt;
-    if (cat.blinkTimer <= 0) {
-      cat.blink = 1;
-      cat.blinkTimer = 2200 + Math.random() * 2800;
-    } else if (cat.blink > 0) {
-      cat.blink -= dt * 0.006;
-      if (cat.blink < 0) cat.blink = 0;
+    cat.tailPhase += dt * (cat.state === "sleep" ? 0.0015 : 0.003);
+    if (cat.state === "scratch") {
+      cat.scratchPhase += dt * 0.025;
     }
 
-    // Render
+    // Blink (skip while sleeping — eyes stay closed)
+    if (cat.state !== "sleep") {
+      cat.blinkTimer -= dt;
+      if (cat.blinkTimer <= 0) {
+        cat.blink = 1;
+        cat.blinkTimer = 2200 + Math.random() * 2800;
+      } else if (cat.blink > 0) {
+        cat.blink -= dt * 0.006;
+        if (cat.blink < 0) cat.blink = 0;
+      }
+    }
+
+    if (cat.tapTimer > 0) cat.tapTimer = Math.max(0, cat.tapTimer - dt);
+
+    updateFx(dt);
+
+    // --- Render
     ctx.clearRect(0, 0, width, height);
     drawBackdrop();
     drawMotes(dt);
+    drawBed(scenery.bed);
+    drawScratchPost(scenery.scratch);
     drawCat();
+    drawFx();
 
     requestAnimationFrame(tick);
   }
@@ -508,6 +973,7 @@
   ro.observe(canvas);
   window.addEventListener("resize", resize);
   resize();
+  startWander();
   requestAnimationFrame((t) => {
     last = t;
     tick(t);
