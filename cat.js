@@ -132,6 +132,27 @@
     cat.spawnTimer = 600;
   }
 
+  // Dev-only hook: lets the preview agent verify the sleep pose without
+  // waiting for the random wander/travel scheduler. Safe to leave in — it
+  // does nothing unless someone calls window.__faSleep().
+  if (typeof window !== "undefined") {
+    window.__faSleep = () => {
+      cat.holdAction = true;
+      enterSleep();
+      return { x: cat.x, y: cat.y, bed: { ...scenery.bed }, w: width, h: height };
+    };
+    window.__faWake = () => {
+      cat.holdAction = false;
+      startWander();
+    };
+    window.__faState = () => ({
+      state: cat.state,
+      x: cat.x, y: cat.y,
+      bed: { ...scenery.bed },
+      w: width, h: height,
+    });
+  }
+
   function enterScratch() {
     cat.state = "scratch";
     cat.actionTimer = 6500 + Math.random() * 4000;
@@ -528,31 +549,223 @@
     };
   }
 
+  // Sleeping pose — drawn separately from the standing/walking pose so we can
+  // show a proper curled-up cat lying in her bed instead of just squishing the
+  // standing drawing vertically.
+  function drawSleepingCat() {
+    ctx.save();
+    ctx.translate(cat.x, cat.y);
+    ctx.scale(cat.facing, 1);
+
+    const breath = Math.sin(cat.tailPhase * 0.5) * 0.5;
+    const tailFlick = Math.sin(cat.tailPhase * 0.3) * 1.2;
+
+    // Tail wraps around the front of the body. Draw it first so the body
+    // overlaps it where it tucks behind her side.
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = FUR_BASE;
+    ctx.lineWidth = 9;
+    // Curve from back-left, sweeping down and around toward the front paws.
+    const tx0 = -34, ty0 = 6;
+    const tx1 = -50, ty1 = 22 + tailFlick;
+    const tx2 = -8, ty2 = 26 + tailFlick;
+    const tx3 = 24, ty3 = 14;
+    ctx.beginPath();
+    ctx.moveTo(tx0, ty0);
+    ctx.bezierCurveTo(tx1, ty1, tx2, ty2, tx3, ty3);
+    ctx.stroke();
+    // Tail rings (tabby)
+    ctx.strokeStyle = FUR_STRIPE;
+    ctx.lineWidth = 9;
+    for (let i = 1; i <= 4; i++) {
+      const t = i / 5;
+      const p0 = bezierPoint(t - 0.04, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
+      const p1 = bezierPoint(t + 0.04, tx0, ty0, tx1, ty1, tx2, ty2, tx3, ty3);
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+    }
+    // Tail tip highlight
+    ctx.strokeStyle = "rgba(255, 220, 170, 0.22)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(tx0, ty0);
+    ctx.bezierCurveTo(tx1, ty1, tx2, ty2, tx3, ty3);
+    ctx.stroke();
+    ctx.restore();
+
+    // Curled body — flat horizontal loaf, fits in the bed cushion
+    ctx.fillStyle = FUR_BASE;
+    ctx.beginPath();
+    ctx.ellipse(-4, 4 + breath * 0.4, 38, 12, -0.04, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tabby stripes across the visible back, clipped to the body
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(-4, 4 + breath * 0.4, 38, 12, -0.04, 0, Math.PI * 2);
+    ctx.clip();
+    for (const sx of [-28, -20, -12, -4, 4, 12]) {
+      drawStripe(sx, 0, 3.2, 8, -0.04, 0.78);
+    }
+    ctx.restore();
+
+    // White underside / belly fur peeking
+    ctx.save();
+    ctx.fillStyle = FUR_WHITE;
+    ctx.beginPath();
+    ctx.ellipse(-2, 11 + breath * 0.4, 26, 5, -0.02, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = FUR_WHITE_SHADE;
+    ctx.beginPath();
+    ctx.ellipse(-2, 14 + breath * 0.4, 24, 2, -0.02, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Soft sunbeam highlight along the back
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    const bodyGrad = ctx.createLinearGradient(-30, -4, 25, 8);
+    bodyGrad.addColorStop(0, "rgba(255, 220, 160, 0.85)");
+    bodyGrad.addColorStop(1, "rgba(255, 220, 160, 0)");
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.ellipse(-4, 1, 38, 12, -0.04, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Front paws — small white peeks tucked under chin
+    ctx.fillStyle = FUR_WHITE;
+    ctx.beginPath();
+    ctx.ellipse(20, 14, 6, 3.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(13, 15, 5.5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Head — turned slightly toward us, resting near the paws
+    ctx.fillStyle = FUR_BASE;
+    ctx.beginPath();
+    ctx.ellipse(24, -2 + breath * 0.5, 16, 13, 0.06, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer ears — relaxed, slightly drooped sideways
+    ctx.beginPath();
+    ctx.moveTo(14, -8);
+    ctx.lineTo(17, -18);
+    ctx.lineTo(23, -10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(27, -10);
+    ctx.lineTo(33, -17);
+    ctx.lineTo(36, -6);
+    ctx.closePath();
+    ctx.fill();
+    // Inner ears — pink
+    ctx.fillStyle = EAR_PINK;
+    ctx.beginPath();
+    ctx.moveTo(17, -10);
+    ctx.lineTo(19, -15);
+    ctx.lineTo(21, -10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(29, -10);
+    ctx.lineTo(33, -14);
+    ctx.lineTo(34, -8);
+    ctx.closePath();
+    ctx.fill();
+
+    // Subtle forehead M
+    ctx.save();
+    ctx.strokeStyle = FUR_STRIPE;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(19, -6);
+    ctx.lineTo(22, -3);
+    ctx.lineTo(25, -6);
+    ctx.lineTo(28, -3);
+    ctx.lineTo(31, -6);
+    ctx.stroke();
+    ctx.restore();
+
+    // White muzzle + chin
+    ctx.fillStyle = FUR_WHITE;
+    ctx.beginPath();
+    ctx.ellipse(30, 5, 9, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Closed eyes — gentle happy arcs
+    ctx.strokeStyle = FUR_STRIPE;
+    ctx.lineWidth = 1.3;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(20, 0, 2.6, 0.15, Math.PI - 0.15);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(28, 0, 2.6, 0.15, Math.PI - 0.15);
+    ctx.stroke();
+
+    // Pink nose
+    ctx.fillStyle = NOSE_PINK;
+    ctx.beginPath();
+    ctx.moveTo(27, 5);
+    ctx.lineTo(30, 4);
+    ctx.lineTo(28.5, 7.5);
+    ctx.closePath();
+    ctx.fill();
+
+    // Tiny content smile
+    ctx.strokeStyle = FUR_STRIPE;
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(28.5, 7.5);
+    ctx.quadraticCurveTo(26, 9, 24, 8);
+    ctx.moveTo(28.5, 7.5);
+    ctx.quadraticCurveTo(31, 9, 33, 8);
+    ctx.stroke();
+
+    // Whiskers — soft
+    ctx.strokeStyle = "rgba(245, 237, 224, 0.6)";
+    ctx.lineWidth = 0.7;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(30, 6 + i * 1.2);
+      ctx.lineTo(46, 7 + i * 2.5);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
   function drawCat() {
-    const sleeping = cat.state === "sleep";
+    if (cat.state === "sleep") {
+      drawSleepingCat();
+      return;
+    }
+
     const scratching = cat.state === "scratch";
 
-    const breath = Math.sin(cat.tailPhase * 0.5) * 0.6;
     const tapBoost = Math.max(0, cat.tapTimer / TAP_DURATION);
     const tapJump = -12 * Math.sin(tapBoost * Math.PI);
-    const bob = (sleeping ? breath : Math.sin(cat.phase) * 1.6) + tapJump;
-    const legSwing = sleeping
-      ? 0
-      : scratching
-        ? Math.sin(cat.scratchPhase) * 12
-        : Math.sin(cat.phase) * 6;
+    const bob = Math.sin(cat.phase) * 1.6 + tapJump;
+    const legSwing = scratching
+      ? Math.sin(cat.scratchPhase) * 12
+      : Math.sin(cat.phase) * 6;
     const armSwing = scratching ? Math.sin(cat.scratchPhase + Math.PI) * 10 : 0;
-    const tail = sleeping
-      ? Math.sin(cat.tailPhase * 0.3) * 0.12
-      : Math.sin(cat.tailPhase) * 0.55;
+    const tail = Math.sin(cat.tailPhase) * 0.55;
 
     ctx.save();
     ctx.translate(cat.x, cat.y + bob);
-    if (sleeping) {
-      // Loaf pose: low and squished, eyes closed
-      ctx.scale(cat.facing, 0.62);
-      ctx.translate(0, 14);
-    } else if (scratching) {
+    if (scratching) {
       ctx.scale(cat.facing, 1);
       ctx.rotate(-0.18); // lean back into the post
       ctx.translate(0, -2);
@@ -562,7 +775,7 @@
 
     // Ground shadow
     ctx.save();
-    ctx.globalAlpha = sleeping ? 0 : 0.3;
+    ctx.globalAlpha = 0.3;
     ctx.fillStyle = "rgba(0,0,0,0.55)";
     ctx.beginPath();
     ctx.ellipse(-2, 30, 42, 6, 0, 0, Math.PI * 2);
@@ -754,8 +967,8 @@
     ctx.ellipse(22, 13, 10, 8, 0.1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eyes — closed when sleeping, otherwise green with tracking pupils
-    const renderBlink = sleeping ? 1 : cat.blink * (1 - tapBoost);
+    // Eyes — green with tracking pupils (sleep is handled in drawSleepingCat)
+    const renderBlink = cat.blink * (1 - tapBoost);
     const eyeOpen = 1 - renderBlink;
     const eyeScale = 1 + 0.35 * tapBoost;
     const eyeY = -7;
