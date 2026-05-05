@@ -271,6 +271,364 @@
     }
   }
 
+  // ── Journey scenery helpers ──────────────────────────────────────────────
+
+  // Deterministic hash so window lights don't flicker between frames.
+  function seededRng(x, y) {
+    let h = (Math.imul(x | 0, 2747636419) ^ Math.imul(y | 0, 2246822519)) >>> 0;
+    h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+    h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+    return ((h ^ (h >>> 16)) >>> 0) / 0xffffffff;
+  }
+
+  function drawLantern(cx, cy, size, wobble) {
+    ctx.save();
+    ctx.translate(cx, cy + Math.sin(wobble) * 1.8);
+    ctx.rotate(Math.sin(wobble * 0.7) * 0.04);
+
+    // Soft warm glow
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 2.8);
+    glow.addColorStop(0, "rgba(220, 70, 50, 0.28)");
+    glow.addColorStop(1, "rgba(220, 70, 50, 0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 2.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body
+    ctx.fillStyle = "#b81e18";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 0.68, size, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ribs
+    ctx.strokeStyle = "rgba(160, 28, 22, 0.55)";
+    ctx.lineWidth = 0.6;
+    for (let i = 0; i < 4; i++) {
+      const py = -size * 0.6 + i * size * 0.4;
+      const rw = Math.sqrt(Math.max(0, 1 - (py / size) ** 2)) * size * 0.68;
+      ctx.beginPath();
+      ctx.moveTo(-rw, py);
+      ctx.lineTo(rw, py);
+      ctx.stroke();
+    }
+
+    // Highlight shimmer
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = "#ffdd99";
+    ctx.beginPath();
+    ctx.ellipse(-size * 0.2, -size * 0.25, size * 0.22, size * 0.38, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Top cap + ring
+    ctx.fillStyle = "#c08820";
+    ctx.fillRect(-size * 0.52, -size - size * 0.22, size * 1.04, size * 0.22);
+    ctx.fillRect(-size * 0.2, -size - size * 0.42, size * 0.4, size * 0.22);
+
+    // Bottom cap
+    ctx.fillRect(-size * 0.42, size, size * 0.84, size * 0.18);
+
+    // Tassel strings
+    ctx.strokeStyle = "#c08820";
+    ctx.lineWidth = 0.7;
+    ctx.lineCap = "round";
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * size * 0.16, size + size * 0.18);
+      ctx.lineTo(
+        i * size * 0.16,
+        size + size * 0.18 + size * 0.55 + Math.sin(wobble + i * 1.1) * size * 0.09
+      );
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawJourneyScenery(t) {
+    const horizonY = height * 0.67;
+    const hkW = width * 0.30; // HK spans left 30 %
+
+    // ── HK glow ───────────────────────────────────────────────────
+    ctx.save();
+    const hkGlow = ctx.createRadialGradient(width * 0.12, horizonY, 0, width * 0.12, horizonY, width * 0.32);
+    hkGlow.addColorStop(0, "rgba(255, 140, 50, 0.09)");
+    hkGlow.addColorStop(1, "rgba(255, 140, 50, 0)");
+    ctx.fillStyle = hkGlow;
+    ctx.fillRect(0, 0, width * 0.38, height);
+    ctx.restore();
+
+    // ── HK skyline ────────────────────────────────────────────────
+    // Each entry: [xFrac of hkW, widthFrac of hkW, heightFrac of canvas]
+    const hkB = [
+      [0.00, 0.06, 0.38], [0.07, 0.04, 0.52], [0.12, 0.07, 0.44],
+      [0.20, 0.04, 0.60], [0.25, 0.06, 0.48], [0.32, 0.03, 0.66],
+      [0.36, 0.06, 0.56], [0.43, 0.04, 0.42], [0.48, 0.07, 0.50],
+      [0.56, 0.03, 0.46], [0.60, 0.05, 0.35], [0.66, 0.07, 0.40],
+      [0.74, 0.03, 0.30], [0.78, 0.07, 0.36], [0.86, 0.07, 0.26],
+      [0.94, 0.06, 0.20],
+    ];
+
+    ctx.save();
+    ctx.globalAlpha = 0.72;
+    ctx.fillStyle = "#1b1308";
+    for (const [xf, wf, hf] of hkB) {
+      const bx = xf * hkW, bw = wf * hkW;
+      const bh = height * hf, by = horizonY - bh;
+      ctx.fillRect(bx, by, bw, bh);
+      // Rooftop antenna on tall buildings
+      if (hf > 0.46) ctx.fillRect(bx + bw * 0.42, by - bh * 0.07, 1.5, bh * 0.07);
+    }
+    ctx.restore();
+
+    // Window lights (stable — no flicker)
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    for (const [xf, wf, hf] of hkB) {
+      const bx = xf * hkW, bw = wf * hkW;
+      const bh = height * hf, by = horizonY - bh;
+      const cols = Math.max(1, Math.floor(bw / 5));
+      const rows = Math.max(1, Math.floor(bh / 9));
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const rng = seededRng(Math.round(bx * 10) + c, Math.round(by * 10) + r);
+          if (rng < 0.55) {
+            const rng2 = seededRng(Math.round(bx * 10) + c + 500, Math.round(by * 10) + r + 500);
+            ctx.fillStyle = rng2 < 0.18 ? "#ffdd66" : "#ffaa44";
+            ctx.fillRect(bx + 2 + c * (bw / cols), by + 5 + r * 9, 2, 3);
+          }
+        }
+      }
+    }
+    ctx.restore();
+
+    // ── Bamboo (left edge, HK foreground) ─────────────────────────
+    ctx.save();
+    const bamboos = [
+      { xf: 0.010, phase: 0.0 }, { xf: 0.024, phase: 0.5 },
+      { xf: 0.038, phase: 1.0 }, { xf: 0.050, phase: 1.5 },
+    ];
+    for (const { xf, phase } of bamboos) {
+      const bx = width * xf + Math.sin(t * 0.38 + phase) * 2.2;
+      const topY = horizonY - height * 0.08;
+
+      ctx.strokeStyle = "#4a6a30";
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.28;
+      ctx.lineCap = "butt";
+      ctx.beginPath();
+      ctx.moveTo(bx, height * 0.95);
+      ctx.lineTo(bx + Math.sin(t * 0.3 + phase) * 3.5, topY);
+      ctx.stroke();
+
+      // Node rings
+      ctx.strokeStyle = "#3a5228";
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.2;
+      for (let s = 1; s <= 5; s++) {
+        const sy = height * 0.95 - (height * 0.95 - topY) * (s / 5.5);
+        ctx.beginPath();
+        ctx.moveTo(bx - 3, sy);
+        ctx.lineTo(bx + 3, sy);
+        ctx.stroke();
+      }
+
+      // Leaves
+      ctx.fillStyle = "#567040";
+      ctx.globalAlpha = 0.32;
+      const leafY = topY + Math.sin(t * 0.4 + phase) * 3;
+      ctx.beginPath();
+      ctx.ellipse(bx + 10, leafY, 13, 3, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(bx - 11, leafY + 14, 14, 3, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // ── Red lanterns (HK) ─────────────────────────────────────────
+    ctx.save();
+    ctx.globalAlpha = 0.88;
+    const lanterns = [
+      { xf: 0.050, yf: 0.38, s: 7,  p: 0.0 },
+      { xf: 0.105, yf: 0.30, s: 9,  p: 1.2 },
+      { xf: 0.170, yf: 0.36, s: 6,  p: 2.4 },
+      { xf: 0.075, yf: 0.52, s: 5,  p: 0.8 },
+      { xf: 0.220, yf: 0.42, s: 7,  p: 1.8 },
+    ];
+    for (const { xf, yf, s, p } of lanterns) {
+      drawLantern(width * xf, height * yf, s, t * 0.6 + p);
+    }
+    ctx.restore();
+
+    // ── Flight path arc (HK → SF) ─────────────────────────────────
+    const arcX0 = width * 0.18, arcY0 = height * 0.28;
+    const arcCx0 = width * 0.36, arcCy0 = height * 0.04;
+    const arcCx1 = width * 0.64, arcCy1 = height * 0.04;
+    const arcX1 = width * 0.76, arcY1 = height * 0.28;
+
+    ctx.save();
+    ctx.globalAlpha = 0.24;
+    ctx.strokeStyle = "#dcc880";
+    ctx.lineWidth = 1.3;
+    ctx.setLineDash([5, 9]);
+    ctx.beginPath();
+    ctx.moveTo(arcX0, arcY0);
+    ctx.bezierCurveTo(arcCx0, arcCy0, arcCx1, arcCy1, arcX1, arcY1);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // Animated airplane along the arc
+    const planeT = (t * 0.072) % 1;
+    const pl = bezierPoint(planeT, arcX0, arcY0, arcCx0, arcCy0, arcCx1, arcCy1, arcX1, arcY1);
+    const plPrev = bezierPoint(Math.max(0, planeT - 0.01), arcX0, arcY0, arcCx0, arcCy0, arcCx1, arcCy1, arcX1, arcY1);
+    const plAngle = Math.atan2(pl.y - plPrev.y, pl.x - plPrev.x);
+
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.translate(pl.x, pl.y);
+    ctx.rotate(plAngle);
+    ctx.fillStyle = "#e8d8b0";
+    // Body
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 8, 2.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Wings
+    ctx.beginPath();
+    ctx.moveTo(-1, 0); ctx.lineTo(-5, -5.5); ctx.lineTo(3, 0); ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-1, 0); ctx.lineTo(-5, 5.5); ctx.lineTo(3, 0); ctx.closePath();
+    ctx.fill();
+    // Tail fin
+    ctx.beginPath();
+    ctx.moveTo(-7, 0); ctx.lineTo(-10, -3.5); ctx.lineTo(-8, 0); ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // ── SF ambient glow ───────────────────────────────────────────
+    ctx.save();
+    const sfGlow = ctx.createRadialGradient(width * 0.80, horizonY, 0, width * 0.80, horizonY, width * 0.28);
+    sfGlow.addColorStop(0, "rgba(110, 170, 210, 0.07)");
+    sfGlow.addColorStop(1, "rgba(110, 170, 210, 0)");
+    ctx.fillStyle = sfGlow;
+    ctx.fillRect(width * 0.55, 0, width * 0.45, height);
+    ctx.restore();
+
+    // ── SF rolling hills ──────────────────────────────────────────
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "#5a7040";
+    ctx.beginPath();
+    ctx.moveTo(width * 0.56, horizonY);
+    ctx.bezierCurveTo(width * 0.61, height * 0.48, width * 0.68, height * 0.45, width * 0.74, horizonY);
+    ctx.lineTo(width * 0.56, horizonY);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(width * 0.73, horizonY);
+    ctx.bezierCurveTo(width * 0.80, height * 0.43, width * 0.90, height * 0.46, width, horizonY);
+    ctx.lineTo(width * 0.73, horizonY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // ── SF fog wisps ─────────────────────────────────────────────
+    ctx.save();
+    for (let i = 0; i < 4; i++) {
+      const fx = width * (0.60 + i * 0.09) + Math.sin(t * 0.1 + i) * width * 0.01;
+      const fy = horizonY - height * (0.04 + i * 0.005);
+      ctx.globalAlpha = 0.07 + Math.sin(t * 0.09 + i * 1.3) * 0.02;
+      const fog = ctx.createRadialGradient(fx, fy, 0, fx, fy, width * 0.095);
+      fog.addColorStop(0, "rgba(205, 212, 200, 0.75)");
+      fog.addColorStop(1, "rgba(205, 212, 200, 0)");
+      ctx.fillStyle = fog;
+      ctx.beginPath();
+      ctx.ellipse(fx, fy, width * 0.095, height * 0.055, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // ── Golden Gate Bridge ────────────────────────────────────────
+    const ggLx = width * 0.640;  // left tower
+    const ggRx = width * 0.818;  // right tower (closer = slightly shorter)
+    const ggDeck = horizonY;
+    const ggTH = height * 0.28;
+    const ggColor = "#8b3a24";
+
+    const ltop = ggDeck - ggTH;
+    const rtop = ggDeck - ggTH * 0.91;
+
+    ctx.save();
+    ctx.globalAlpha = 0.54;
+    ctx.fillStyle = ggColor;
+
+    // Left tower
+    ctx.fillRect(ggLx - 4, ltop, 8, ggTH);
+    ctx.fillRect(ggLx - 14, ltop + 10, 28, 4.5);
+    ctx.fillRect(ggLx - 14, ltop + ggTH * 0.38, 28, 4.5);
+
+    // Right tower
+    ctx.fillRect(ggRx - 4, rtop, 8, ggTH * 0.91);
+    ctx.fillRect(ggRx - 14, rtop + 10, 28, 4.5);
+    ctx.fillRect(ggRx - 14, rtop + ggTH * 0.91 * 0.38, 28, 4.5);
+
+    // Main suspension cable (catenary)
+    const csx = ggLx - 60, csy = ltop + 12;
+    const cex = ggRx + 55, cey = rtop + 12;
+    const midX = (ggLx + ggRx) / 2;
+    const midY = ggDeck + height * 0.026;
+
+    ctx.strokeStyle = ggColor;
+    ctx.lineWidth = 2.2;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(csx, csy + height * 0.04);
+    ctx.quadraticCurveTo(ggLx, ltop + 12, midX, midY);
+    ctx.quadraticCurveTo(ggRx, rtop + 12, cex, cey + height * 0.03);
+    ctx.stroke();
+
+    // Vertical hangers
+    ctx.lineWidth = 0.75;
+    ctx.globalAlpha = 0.28;
+    for (let hx = csx + 10; hx <= cex - 10; hx += 10) {
+      let cy2;
+      if (hx <= midX) {
+        const tl = (hx - csx) / (midX - csx);
+        cy2 = (1-tl)*(1-tl)*(csy+height*0.04) + 2*(1-tl)*tl*(ltop+12) + tl*tl*midY;
+      } else {
+        const tr = (hx - midX) / (cex - midX);
+        cy2 = (1-tr)*(1-tr)*midY + 2*(1-tr)*tr*(rtop+12) + tr*tr*(cey+height*0.03);
+      }
+      ctx.beginPath();
+      ctx.moveTo(hx, cy2);
+      ctx.lineTo(hx, ggDeck);
+      ctx.stroke();
+    }
+
+    // Bridge deck
+    ctx.globalAlpha = 0.54;
+    ctx.fillStyle = ggColor;
+    ctx.fillRect(csx, ggDeck - 5, cex - csx, 5);
+
+    ctx.restore();
+
+    // ── Subtle horizon haze ───────────────────────────────────────
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    const hz = ctx.createLinearGradient(0, horizonY - 8, 0, horizonY + 8);
+    hz.addColorStop(0,   "rgba(200, 180, 140, 0)");
+    hz.addColorStop(0.5, "rgba(200, 180, 140, 0.5)");
+    hz.addColorStop(1,   "rgba(200, 180, 140, 0)");
+    ctx.fillStyle = hz;
+    ctx.fillRect(0, horizonY - 8, width, 16);
+    ctx.restore();
+  }
+
   function roundRect(x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -1173,6 +1531,7 @@
     // --- Render
     ctx.clearRect(0, 0, width, height);
     drawBackdrop();
+    drawJourneyScenery(performance.now() * 0.001);
     drawMotes(dt);
     drawBed(scenery.bed);
     drawScratchPost(scenery.scratch);
