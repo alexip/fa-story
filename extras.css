@@ -1,0 +1,881 @@
+/* ============================================================
+   extras.css — additions to the Fa Story site.
+   Layered on top of styles.css; uses the same palette tokens.
+   ============================================================ */
+
+/* Header meta slot (pickleball tally) */
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.pball-tally {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px 6px 9px;
+  background: rgba(233, 216, 85, 0.10);
+  border: 1px solid rgba(233, 216, 85, 0.28);
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--paper);
+  animation: tallyPulse 240ms ease;
+}
+.pball-tally b { font-variant-numeric: tabular-nums; color: #e9d855; }
+.pball-tally-icon {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f5e26b 0%, #e9d855 55%, #b8a838 100%);
+  position: relative;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35) inset;
+}
+.pball-tally-icon::before, .pball-tally-icon::after {
+  content: "";
+  position: absolute;
+  background: rgba(0,0,0,.18);
+  border-radius: 50%;
+}
+.pball-tally-icon::before { width: 2px; height: 2px; top: 3px; left: 4px; }
+.pball-tally-icon::after  { width: 2px; height: 2px; bottom: 3px; right: 3px; box-shadow: -4px -1px 0 rgba(0,0,0,.18); }
+
+@keyframes tallyPulse {
+  0% { transform: scale(.92); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 720px) {
+  .header-meta { display: none; }
+}
+
+/* ============================================================
+   Pickleballs — collectible easter-eggs scattered around the site.
+   ============================================================ */
+
+.pball {
+  --pball-size: 22px;
+  position: absolute;
+  width: var(--pball-size);
+  height: var(--pball-size);
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 35% 30%, #f5e26b 0%, #e9d855 50%, #b8a838 100%);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 2px 6px rgba(0,0,0,.4),
+    0 0 0 0 rgba(233, 216, 85, 0);
+  opacity: 0;
+  transform: translateY(0) scale(.9);
+  transition: opacity 400ms ease, transform 240ms cubic-bezier(.4,1.6,.6,1), box-shadow 240ms ease;
+  z-index: 5;
+}
+.pball.is-revealed {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  animation: pballJitter 5.5s ease-in-out infinite;
+}
+.pball:hover {
+  transform: scale(1.18);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 2px 8px rgba(0,0,0,.5),
+    0 0 24px 6px rgba(233, 216, 85, .45);
+}
+/* Pickleball "holes" — drawn with pseudo elements */
+.pball::before, .pball::after {
+  content: "";
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.22);
+}
+.pball::before { top: 4px; left: 6px; box-shadow: 5px 3px 0 rgba(0,0,0,.22); }
+.pball::after  { bottom: 5px; right: 5px; box-shadow: -5px 2px 0 rgba(0,0,0,.22); }
+
+.pball.is-collected { animation: pballCollect 600ms ease forwards; pointer-events: none; }
+
+@keyframes pballJitter {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  20% { transform: translateY(-2px) rotate(-4deg) scale(1); }
+  50% { transform: translateY(1px) rotate(2deg) scale(1); }
+  80% { transform: translateY(-1px) rotate(-1deg) scale(1); }
+}
+
+@keyframes pballCollect {
+  0%   { transform: scale(1) translateY(0); opacity: 1; }
+  35%  { transform: scale(1.6) translateY(-12px); opacity: 1; }
+  100% { transform: scale(.2) translateY(-80px); opacity: 0; }
+}
+
+/* Individual pickleball placements ---------------------------------- */
+
+/* #1 — peeking from behind the brand glyph */
+.pball--brand {
+  --pball-size: 14px;
+  top: -2px;
+  left: 18px;
+  z-index: 1;
+}
+
+/* #2 — sitting in the canvas corner */
+.pball--canvas {
+  --pball-size: 18px;
+  right: 36px;
+  bottom: 22px;
+}
+
+/* #3 — rolled into the player */
+.pball--player {
+  --pball-size: 14px;
+  top: 24px;
+  right: 24px;
+}
+
+/* #4 — peeking behind scene 03's number (the missing-pickleball scene) */
+.scene-num.pball-host { position: relative; }
+.pball--scene {
+  --pball-size: 16px;
+  top: 4px;
+  right: -4px;
+}
+
+/* #5 — dropped at the bottom corner of Dear Fafa */
+.dear-fafa { position: relative; }
+.pball--dear {
+  --pball-size: 22px;
+  right: 32px;
+  bottom: 32px;
+}
+
+/* Pickleball ping particle, spawned on collect */
+.pball-ping {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-style: italic;
+  color: #e9d855;
+  text-shadow: 0 1px 4px rgba(0,0,0,.6);
+  animation: pballPing 1100ms ease-out forwards;
+}
+@keyframes pballPing {
+  0%   { transform: translate(-50%, 0) scale(.8); opacity: 0; }
+  20%  { transform: translate(-50%, -8px) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -36px) scale(1); opacity: 0; }
+}
+
+/* ============================================================
+   Treat jar — tossing fish onto the canvas to lure Fafa.
+   ============================================================ */
+
+.treat-jar {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.treat-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px 9px 12px;
+  border: 1px solid rgba(255, 220, 180, 0.18);
+  border-radius: 999px;
+  background: rgba(26, 20, 15, 0.7);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+.treat-btn:hover {
+  background: rgba(26, 20, 15, 0.9);
+  border-color: rgba(255, 220, 180, 0.34);
+  transform: translateY(-1px);
+}
+.treat-btn:active { transform: translateY(0) scale(0.97); }
+.treat-icon {
+  font-size: 18px;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(156, 194, 106, 0.45));
+  transform: translateY(-1px);
+}
+.treat-btn.is-cooling { opacity: 0.55; cursor: progress; }
+
+.treat-tally {
+  margin: 0;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--whisker);
+  pointer-events: none;
+}
+.treat-tally b { color: var(--accent-soft); font-variant-numeric: tabular-nums; }
+
+/* The fish that flies onto the canvas */
+.flying-fish {
+  position: absolute;
+  z-index: 2;
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--accent-soft);
+  text-shadow: 0 1px 6px rgba(0,0,0,.6);
+  pointer-events: none;
+  animation: fishToss 700ms cubic-bezier(.3,.7,.4,1) forwards;
+}
+@keyframes fishToss {
+  0%   { transform: translate(0, -120px) rotate(-30deg) scale(.6); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+}
+.flying-fish.is-eaten {
+  animation: fishEat 360ms ease forwards;
+}
+@keyframes fishEat {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(.2); opacity: 0; }
+}
+
+@media (max-width: 720px) {
+  .treat-jar { right: 12px; bottom: 12px; }
+  .treat-btn { padding: 7px 11px; font-size: 11px; }
+  .treat-tally { display: none; }
+}
+
+/* ============================================================
+   Dear Fafa — Claude-powered Q&A.
+   ============================================================ */
+
+.dear-fafa {
+  padding: 48px 32px 80px;
+  max-width: 920px;
+  margin: 32px auto 0;
+  width: 100%;
+}
+.dear-fafa-inner {
+  background:
+    linear-gradient(180deg, rgba(245, 237, 224, 0.03), rgba(245, 237, 224, 0.01)),
+    var(--ink-soft);
+  border-radius: var(--radius);
+  padding: 40px 44px 44px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 220, 180, 0.06),
+    0 30px 60px -40px rgba(0,0,0,.6);
+  position: relative;
+  overflow: hidden;
+}
+.dear-fafa-inner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(420px 220px at 90% -10%, rgba(212, 154, 106, 0.10), transparent 70%),
+    radial-gradient(360px 200px at -10% 100%, rgba(156, 194, 106, 0.08), transparent 70%);
+  pointer-events: none;
+}
+.dear-fafa-head { position: relative; max-width: 620px; margin-bottom: 24px; }
+.dear-fafa-eyebrow {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.dear-fafa-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(36px, 4.4vw, 56px);
+  letter-spacing: -0.015em;
+  line-height: 1;
+  margin: 0 0 14px;
+  font-style: italic;
+}
+.dear-fafa-sub {
+  margin: 0;
+  color: var(--paper-dim);
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 540px;
+}
+
+/* Mailbox + mailbag --------------------------------------------------- */
+
+.mailbox-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 32px;
+  align-items: stretch;
+}
+
+.mailbox-form { display: flex; flex-direction: column; gap: 14px; }
+.mailbox-form[hidden] { display: none; }
+
+.mailbox-paper {
+  background: #f3e9d4;
+  color: #2b1d12;
+  border-radius: 10px;
+  padding: 22px 24px 18px;
+  font-family: var(--font-display);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.6) inset,
+    -2px 14px 30px -18px rgba(0,0,0,.6),
+    0 0 0 1px rgba(255, 200, 130, 0.18);
+  position: relative;
+  background-image:
+    repeating-linear-gradient(transparent 0, transparent 28px, rgba(108, 78, 40, 0.08) 28px, rgba(108, 78, 40, 0.08) 29px);
+}
+.mailbox-paper-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #8a6a3a;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed rgba(108, 78, 40, 0.25);
+}
+.mailbox-postmark::before {
+  content: "postmark · ";
+  color: #b08c5a;
+}
+#mailbox-message {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  color: #2b1d12;
+  font: italic 400 18px/29px var(--font-display);
+  padding: 0;
+  min-height: 116px;
+  caret-color: #8a4a20;
+}
+#mailbox-message::placeholder { color: #a07a48; font-style: italic; }
+
+.mailbox-from {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(108, 78, 40, 0.25);
+}
+.mailbox-from label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-body);
+}
+.mailbox-from label span {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #8a6a3a;
+}
+.mailbox-from input {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(108, 78, 40, 0.28);
+  padding: 4px 0 6px;
+  color: #2b1d12;
+  font: italic 16px/1.3 var(--font-display);
+  outline: 0;
+}
+.mailbox-from input:focus { border-bottom-color: #8a4a20; }
+.mailbox-from input::placeholder { color: #a88a5a; font-style: italic; }
+
+.mailbox-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.mailbox-fineprint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--whisker);
+  max-width: 360px;
+  line-height: 1.45;
+}
+.mailbox-send {
+  appearance: none;
+  border: 0;
+  background: var(--accent);
+  color: var(--ink);
+  font: 600 12px/1 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 11px 16px 11px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  transition: background 160ms ease, transform 120ms ease;
+}
+.mailbox-send:hover { background: #b3d57e; }
+.mailbox-send:active { transform: scale(0.97); }
+.mailbox-send:disabled { opacity: 0.55; cursor: progress; }
+
+/* The physical mailbox sitting beside the form */
+.mailbox-bin {
+  position: relative;
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  user-select: none;
+}
+.mailbox-bin-flag {
+  width: 6px;
+  height: 28px;
+  background: #b34020;
+  border-radius: 1px;
+  margin-bottom: -4px;
+  margin-left: 64px;
+  transform-origin: bottom center;
+  transition: transform 260ms cubic-bezier(.3,1.4,.4,1);
+}
+.mailbox-bin.is-flagged .mailbox-bin-flag { transform: rotate(-78deg) translate(-2px, -4px); }
+.mailbox-bin-body {
+  width: 96px;
+  height: 78px;
+  background: linear-gradient(180deg, #4a3a26 0%, #2c2014 100%);
+  border-radius: 48px 48px 6px 6px;
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 180, 0.12),
+    0 20px 40px -28px rgba(0,0,0,.6);
+}
+.mailbox-bin-slot {
+  position: absolute;
+  top: 30px;
+  left: 14px;
+  right: 14px;
+  height: 6px;
+  background: #100a06;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(255, 220, 180, 0.08);
+}
+.mailbox-bin-label {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(245, 237, 224, 0.55);
+  font: 600 8.5px/1 var(--font-body);
+  letter-spacing: 0.22em;
+}
+.mailbox-bin-post {
+  width: 14px;
+  height: 24px;
+  background: #2c2014;
+  border-radius: 2px;
+}
+.mailbox-letter {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  width: 42px;
+  height: 26px;
+  background: #f3e9d4;
+  border-radius: 2px;
+  transform: translate(-50%, -120px) rotate(-10deg);
+  box-shadow: 0 4px 10px rgba(0,0,0,.4), 0 0 0 1px rgba(180, 140, 100, 0.4);
+  opacity: 0;
+  pointer-events: none;
+}
+.mailbox-letter::before, .mailbox-letter::after {
+  content: "";
+  position: absolute;
+}
+.mailbox-letter::before {
+  inset: 0;
+  background: linear-gradient(135deg, transparent 49%, rgba(140, 100, 60, 0.28) 50%, transparent 51%);
+}
+.mailbox-letter::after {
+  top: 3px; right: 3px; width: 9px; height: 9px;
+  background: #c44030;
+  border: 1px dashed rgba(0,0,0,.25);
+}
+.mailbox-letter.is-flying {
+  animation: letterFly 900ms cubic-bezier(.5,.2,.3,1) forwards;
+}
+@keyframes letterFly {
+  0%   { transform: translate(-50%, -120px) rotate(-12deg); opacity: 0; }
+  15%  { opacity: 1; }
+  60%  { transform: translate(-50%, 16px) rotate(2deg); opacity: 1; }
+  100% { transform: translate(-50%, 36px) rotate(8deg) scale(.7); opacity: 0; }
+}
+
+/* Delivery-confirmation card (replaces form after submit) */
+.mailbox-thanks[hidden] { display: none; }
+.mailbox-thanks {
+  position: relative;
+  padding: 26px 28px 24px;
+  background: #f3e9d4;
+  color: #2b1d12;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.6) inset,
+    -2px 14px 30px -18px rgba(0,0,0,.6),
+    0 0 0 1px rgba(255, 200, 130, 0.18);
+  transform: rotate(-0.4deg);
+  animation: thanksDrop 420ms cubic-bezier(.3,1.4,.4,1);
+  max-width: 520px;
+}
+@keyframes thanksDrop {
+  0% { transform: translateY(-10px) rotate(-1.6deg); opacity: 0; }
+  100% { transform: translateY(0) rotate(-0.4deg); opacity: 1; }
+}
+.mailbox-thanks-stamp {
+  position: absolute;
+  top: -10px;
+  right: 24px;
+  background: #c44030;
+  color: #f3e9d4;
+  font: 600 10px/1 var(--font-body);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 2px;
+  transform: rotate(6deg);
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.mailbox-thanks h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 26px;
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+.mailbox-thanks p {
+  margin: 0 0 16px;
+  color: #5a4228;
+  font: 16px/1.45 var(--font-display);
+  font-style: italic;
+}
+.mailbox-again {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: 600 11px/1 var(--font-body);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8a6a3a;
+  cursor: pointer;
+  padding: 6px 0;
+}
+.mailbox-again:hover { color: #2b1d12; }
+
+/* Mailbag — published Q&A column ----------------------------------------- */
+
+.mailbag {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(245, 237, 224, 0.08);
+  position: relative;
+}
+.mailbag-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.mailbag-head h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(22px, 2.4vw, 30px);
+  margin: 0;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+}
+.mailbag-issue {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.mailbag-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.letter {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.letter-q {
+  background: rgba(245, 237, 224, 0.04);
+  border: 1px solid rgba(245, 237, 224, 0.08);
+  border-radius: 12px;
+  padding: 20px 22px;
+}
+.letter-q-body {
+  margin: 0 0 10px;
+  font: 400 15px/1.5 var(--font-body);
+  color: var(--paper);
+}
+.letter-q-sig {
+  margin: 0;
+  font: italic 14px/1.4 var(--font-display);
+  color: var(--paper-dim);
+}
+.letter-a {
+  position: relative;
+  background: #f3e9d4;
+  color: #2b1d12;
+  padding: 20px 24px 18px;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.6) inset,
+    -2px 12px 24px -18px rgba(0,0,0,.6),
+    0 0 0 1px rgba(255, 200, 130, 0.18);
+  transform: rotate(-0.3deg);
+}
+.letter-a::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 22px;
+  width: 48px;
+  height: 16px;
+  background: rgba(212, 154, 106, 0.55);
+  transform: rotate(-3deg);
+  border-radius: 2px;
+}
+.letter-a header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-body);
+  margin-bottom: 8px;
+}
+.letter-a-from {
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #8a6a3a;
+}
+.letter-a-stamp {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: #8a6a3a;
+}
+.letter-a-body {
+  margin: 0 0 10px;
+  font: italic 400 17px/1.5 var(--font-display);
+}
+.letter-a footer {
+  font: italic 14px/1.4 var(--font-display);
+  color: #6a4a28;
+}
+
+@media (max-width: 820px) {
+  .mailbox-row { grid-template-columns: 1fr; }
+  .mailbox-bin { display: none; }
+  .letter { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .dear-fafa { padding: 32px 16px 64px; }
+  .dear-fafa-inner { padding: 28px 22px 30px; }
+  .mailbox-paper { padding: 18px 20px 16px; }
+  #mailbox-message { font-size: 17px; line-height: 27px; }
+  .mailbox-from { grid-template-columns: 1fr; gap: 10px; }
+}
+
+/* ============================================================
+   Lost & Found overlay
+   ============================================================ */
+
+.lost-found[hidden] { display: none !important; }
+.lost-found {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 14, 8, 0.74);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  z-index: 2147483645;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  animation: overlayIn 240ms ease;
+}
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.lost-found-card {
+  background: var(--ink-soft);
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 580px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 28px;
+  align-items: center;
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,.7);
+  animation: cardPop 360ms cubic-bezier(.3,1.5,.4,1);
+}
+@keyframes cardPop {
+  from { transform: translateY(20px) scale(.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.polaroid {
+  transform: rotate(-3deg);
+  background: #f3e9d4;
+  padding: 10px 10px 32px;
+  box-shadow: 0 20px 40px -16px rgba(0,0,0,.7);
+}
+.polaroid-frame { background: #1f160f; border-radius: 2px; overflow: hidden; }
+.polaroid-art { width: 100%; display: block; }
+.polaroid-caption {
+  margin: 12px 0 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  color: #2b1d12;
+  text-align: center;
+}
+.lost-found-text h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 28px;
+  line-height: 1.1;
+  margin: 0 0 12px;
+  color: var(--paper);
+  letter-spacing: -0.01em;
+}
+.lost-found-text p {
+  margin: 0 0 18px;
+  color: var(--paper-dim);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.lost-found-close {
+  appearance: none;
+  border: 0;
+  background: var(--accent);
+  color: var(--ink);
+  font: 600 12px/1 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.lost-found-close:hover { background: #b3d57e; }
+
+@media (max-width: 640px) {
+  .lost-found-card { grid-template-columns: 1fr; gap: 20px; padding: 22px; }
+  .polaroid { transform: rotate(-2deg); max-width: 220px; margin: 0 auto; }
+}
+
+/* ============================================================
+   Tweaks panel
+   ============================================================ */
+
+.tweaks {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483646;
+  width: 248px;
+  background: rgba(34, 26, 19, 0.92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  color: var(--paper);
+  border: 1px solid rgba(255, 220, 180, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  font: 12px/1.4 var(--font-body);
+  overflow: hidden;
+}
+.tweaks-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 11px 10px 11px 14px;
+  border-bottom: 1px solid rgba(255, 220, 180, 0.08);
+}
+.tweaks-head b { font-size: 12px; letter-spacing: 0.04em; }
+.tweaks-x {
+  appearance: none; border: 0; background: transparent;
+  color: var(--paper-dim); width: 24px; height: 24px;
+  border-radius: 6px; cursor: pointer; font-size: 16px; line-height: 1;
+}
+.tweaks-x:hover { background: rgba(255,255,255,.06); color: var(--paper); }
+.tweaks-body {
+  padding: 10px 14px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.tweak-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; padding: 8px 0;
+  border-top: 1px dashed rgba(255, 220, 180, 0.07);
+}
+.tweak-row:first-child { border-top: 0; }
+.tweak-label { font-size: 12.5px; color: var(--paper); }
+.tweak-sub { display: block; font-size: 10.5px; color: var(--whisker); margin-top: 2px; }
+
+/* Pill toggle */
+.tweak-toggle {
+  appearance: none; border: 0; cursor: pointer;
+  width: 34px; height: 20px; border-radius: 999px;
+  background: rgba(255, 220, 180, 0.12);
+  position: relative;
+  transition: background 160ms ease;
+  flex-shrink: 0;
+}
+.tweak-toggle::after {
+  content: ""; position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--paper);
+  transition: left 160ms ease;
+}
+.tweak-toggle[aria-pressed="true"] { background: var(--accent); }
+.tweak-toggle[aria-pressed="true"]::after { left: 16px; background: var(--ink); }
+
+/* Feature-off rules ------------------------------------------------- */
+body.no-pickleballs .pball,
+body.no-pickleballs .pball-tally { display: none !important; }
+body.no-treats .treat-jar { display: none !important; }
+body.no-dear-fafa #dear-fafa,
+body.no-dear-fafa .site-nav a[href="#dear-fafa"] { display: none !important; }

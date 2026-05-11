@@ -5,16 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Fa Story — a podcast hosted by a tabby named Fafa</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="extras.css" />
+    <script>
+      // Tweak defaults (host rewrites this block on save).
+      window.FA_TWEAKS = /*EDITMODE-BEGIN*/{
+        "showPickleballs": true,
+        "showDearFafa": true,
+        "showTreats": true
+      }/*EDITMODE-END*/;
+    </script>
   </head>
   <body>
     <header class="site-header">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">𓃠</span>
         <span class="brand-name">Fa Story</span>
+        <!-- Hidden pickleball #1 — tucked into the brand mark's curl -->
+        <button class="pball pball--brand" data-pball="1" aria-label="Collect pickleball"></button>
       </div>
+
+      <div class="header-meta">
+        <span class="pball-tally" id="pball-tally" hidden>
+          <span class="pball-tally-icon" aria-hidden="true"></span>
+          <span><b id="pball-count">0</b>/5 pickleballs</span>
+        </span>
+      </div>
+
       <nav class="site-nav" aria-label="Primary">
         <a href="#episodes">Episodes</a>
-        <a href="#about">About</a>
+        <a href="#dear-fafa">Dear Fafa</a>
         <a href="#subscribe">Subscribe</a>
       </nav>
     </header>
@@ -30,16 +49,29 @@
           </p>
         </div>
         <div class="art-credit">starring Fafa · live canvas, never the same twice</div>
+
+        <!-- Treat jar — toss a fish on the canvas, Fafa investigates -->
+        <div class="treat-jar" id="treat-jar" hidden>
+          <button class="treat-btn" id="treat-btn" aria-label="Toss Fafa a treat">
+            <span class="treat-icon" aria-hidden="true">𓆟</span>
+            <span class="treat-label">Toss a fish</span>
+          </button>
+          <p class="treat-tally"><b id="treat-count">0</b> served today</p>
+        </div>
+
+        <!-- Hidden pickleball #2 — sitting in the canvas corner, behind the credit line -->
+        <button class="pball pball--canvas" data-pball="2" aria-label="Collect pickleball"></button>
       </section>
 
       <aside class="player" aria-label="Latest episode player">
         <div class="player-meta">
-          <span class="player-eyebrow">Episode 1 · Pilot</span>
-          <h2 class="player-title">Don't Microwave My Fish</h2>
+          <span class="player-eyebrow">Episode 1 · Day 1 of 7</span>
+          <h2 class="player-title">Disagreeing with DST</h2>
           <p class="player-desc">
-            A Sonicare wakes Fafa too early, the breakfast is reheated wrong,
-            her pickleball goes missing, and a coyote stops by. By dinner she's
-            mostly forgiven everyone.
+            A Sonicare wakes Fafa an hour too early. The breakfast is reheated
+            wrong. Her pickleball goes missing. A coyote and a mirror both stare
+            too long. Her first Daylight Savings Time, narrated mostly in
+            complaints.
           </p>
         </div>
 
@@ -73,18 +105,21 @@
           </div>
         </div>
 
+        <!-- Hidden pickleball #3 — rolled behind the player title -->
+        <button class="pball pball--player" data-pball="3" aria-label="Collect pickleball"></button>
+
         <audio id="episode-audio" preload="metadata"></audio>
       </aside>
-
     </main>
 
     <section class="show-notes" id="episodes" aria-labelledby="show-notes-title">
       <div class="show-notes-head">
         <p class="show-notes-eyebrow">Episode 1 · Show Notes</p>
-        <h2 class="show-notes-title" id="show-notes-title">Don't Microwave My Fish</h2>
+        <h2 class="show-notes-title" id="show-notes-title">Disagreeing with DST</h2>
         <p class="show-notes-sub">
-          Recorded from a sunbeam-less morning. Five scenes about indignity,
-          hunger, missing things, and the long way back to a properly served snack.
+          Day 1 of 7. Six scenes about an hour stolen by humans, food warmed
+          the wrong way, a missing yellow ball, a mirror that won't stop staring,
+          and the slow forgiveness that comes with dinner.
         </p>
       </div>
 
@@ -94,12 +129,13 @@
           <div class="scene-body">
             <h3 class="scene-title">The Interruption</h3>
             <p class="scene-desc">
-              A Sonicare. Flip flops to the kitchen. The microwave (forbidden).
-              The bowl placed too close to her face. The door slammed without
-              a goodbye cuddle.
+              A dream of chubby little birds, cut short by an electric toothbrush.
+              Flip flops to the kitchen, then the microwave (forbidden). The bowl
+              shoved too close to her face. Alex packs his bag and shuts the door
+              without a goodbye cuddle.
             </p>
             <p class="scene-quote">
-              "Why are you getting up so early? Go back and stop bothering me!"
+              "Ew, why are you putting my food in that thing? You know I don't like that sound."
             </p>
           </div>
         </li>
@@ -109,22 +145,28 @@
           <div class="scene-body">
             <h3 class="scene-title">The Curious Commute</h3>
             <p class="scene-desc">
-              No sunbeam in the windowsill. A coyote stares back. Three sad
-              black cats across the way. A meow into a house that does not answer.
+              From the windowsill: the neighbor kids leaving early, a coyote
+              wishing for a cat dinner, and three black cats doing their morning
+              catwalk. A loud meow into a house that doesn't answer.
             </p>
             <p class="scene-quote">
-              "I wish I could talk to you guys, but I'm not getting out of here. Not a chance."
+              "I'm a house cat. My food is usually warm too. Plus a little cat grass as garnish."
             </p>
           </div>
         </li>
 
         <li class="scene">
-          <span class="scene-num" aria-hidden="true">03</span>
+          <span class="scene-num pball-host" aria-hidden="true">
+            03
+            <!-- Hidden pickleball #4 — peeking from behind scene 3 (the missing pickleball scene) -->
+            <button class="pball pball--scene" data-pball="4" aria-label="Collect pickleball"></button>
+          </span>
           <div class="scene-body">
             <h3 class="scene-title">The Routine and The Respite</h3>
             <p class="scene-desc">
-              A 2001 Ford Escape, too loud. A trip to the toy box reveals the
-              yellow ball is gone. Apparently they call it 'Pickle Ball.'
+              A 2001 Ford Escape, far too loud. The toy box reveals the yellow
+              ball is gone — Alex took it. Apparently they call it 'Pickle Ball.'
+              A long, righteous session at the scratching board follows.
             </p>
             <p class="scene-quote">
               "It doesn't look like a pickle. It's just a ball. And he took it today."
@@ -137,12 +179,12 @@
           <div class="scene-body">
             <h3 class="scene-title">The Passage of Time</h3>
             <p class="scene-desc">
-              Thirty minutes of grooming. A fluffy pillow chosen carefully. A
-              pointy claw. Then memories — Mommy, Daddy, Alan, and the cage
-              that brought her here.
+              Thirty minutes of grooming. A fluffy pillow on Alex's bed, expertly
+              shredded. A piece of cotton becomes a memory — Mommy, Daddy, and
+              Alan, before the cage and the long flight to San Francisco.
             </p>
             <p class="scene-quote">
-              "Mommy used to have cheap pillows too."
+              "There is no mommy. There is no daddy. There is no Alan. There is only Alex."
             </p>
           </div>
         </li>
@@ -152,25 +194,264 @@
           <div class="scene-body">
             <h3 class="scene-title">The Reward and The Conclusion</h3>
             <p class="scene-desc">
-              Fish on the floor (her doing). A clean bowl appears. A meter maid
-              is foiled, $100 is saved, a new pickleball is owed. Mochi and Momo
-              bark in the garage, as always.
+              Alex returns. Fafa flips her bowl on principle, then accepts a
+              snack squeezed onto his palm. Cat grass, steamed correctly. Sean
+              comes by with Mochi and Momo. Someone mentions 'daylight savings.'
+              She does not investigate further.
             </p>
             <p class="scene-quote">
-              "This is my favorite snack. This is better, but I'm still hungry."
+              "Fafa operates on Tummy Time. That's her reality."
+            </p>
+          </div>
+        </li>
+
+        <li class="scene">
+          <span class="scene-num" aria-hidden="true">06</span>
+          <div class="scene-body">
+            <h3 class="scene-title">The Ending Dream</h3>
+            <p class="scene-desc">
+              Dinner has settled. The mirror tabby has been dismissed. On the
+              couch with Alex and YouTube, Fafa falls asleep and meets Steve,
+              the narrator of her story, who offers to explain Daylight Savings
+              or why Pickleball is called Pickleball. She declines.
+            </p>
+            <p class="scene-quote">
+              "Hmm, well, it doesn't matter to me. But thanks anyway. Now can you get out of my dream?"
             </p>
           </div>
         </li>
       </ol>
     </section>
 
+    <!-- Dear Fafa — a mailbox. Letters are queued, reviewed weekly, and a
+         curated mailbag is published once Fafa decides she has opinions. -->
+    <section class="dear-fafa" id="dear-fafa" aria-labelledby="dear-fafa-title">
+      <div class="dear-fafa-inner">
+        <div class="dear-fafa-head">
+          <p class="dear-fafa-eyebrow">A new segment · the mailbag</p>
+          <h2 class="dear-fafa-title" id="dear-fafa-title">Dear Fafa,</h2>
+          <p class="dear-fafa-sub">
+            Drop a letter in the mailbox. Fafa reads on Sundays, picks her
+            favorites, and answers a few on the next episode. The good ones
+            get posted below.
+          </p>
+        </div>
+
+        <div class="mailbox-row">
+          <form class="mailbox-form" id="mailbox-form" autocomplete="off">
+            <div class="mailbox-paper">
+              <div class="mailbox-paper-head">
+                <span>To: Fafa</span>
+                <span class="mailbox-postmark" id="mailbox-postmark"></span>
+              </div>
+              <textarea
+                id="mailbox-message"
+                name="message"
+                rows="4"
+                maxlength="500"
+                required
+                placeholder="my human keeps shutting the bedroom door at night. is this a betrayal?"
+              ></textarea>
+              <div class="mailbox-from">
+                <label>
+                  <span>From</span>
+                  <input id="mailbox-name" name="name" type="text" maxlength="40" placeholder="your cat's name (optional)" />
+                </label>
+                <label>
+                  <span>City</span>
+                  <input id="mailbox-city" name="city" type="text" maxlength="40" placeholder="optional" />
+                </label>
+              </div>
+            </div>
+
+            <div class="mailbox-actions">
+              <p class="mailbox-fineprint">
+                Letters are reviewed by a human (and one tabby) before anything
+                gets posted. No emails, no spam.
+              </p>
+              <button class="mailbox-send" type="submit" id="mailbox-send">
+                <span>Mail it</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                  <path d="M3 7l9 6 9-6M3 7v10h18V7M3 7l9-4 9 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          </form>
+
+          <aside class="mailbox-bin" aria-hidden="true">
+            <div class="mailbox-bin-flag"></div>
+            <div class="mailbox-bin-body">
+              <div class="mailbox-bin-slot"></div>
+              <div class="mailbox-bin-label">FA STORY · BOX 1</div>
+            </div>
+            <div class="mailbox-bin-post"></div>
+            <!-- Letter that flies into the mailbox on submit -->
+            <div class="mailbox-letter" id="mailbox-letter" hidden></div>
+          </aside>
+        </div>
+
+        <!-- Thanks card (replaces the form after a successful submission) -->
+        <div class="mailbox-thanks" id="mailbox-thanks" hidden>
+          <span class="mailbox-thanks-stamp">delivered</span>
+          <h3>Your letter is in the mailbox.</h3>
+          <p>Fafa reads on Sundays. If she has thoughts (she usually does),
+            you'll see her reply in the next mailbag below.</p>
+          <button type="button" class="mailbox-again" id="mailbox-again">Write another</button>
+        </div>
+
+        <!-- The mailbag: curated letters Fafa has already answered. -->
+        <section class="mailbag" aria-labelledby="mailbag-title">
+          <header class="mailbag-head">
+            <h3 id="mailbag-title">From the mailbag</h3>
+            <span class="mailbag-issue">Issue №2 · this week</span>
+          </header>
+
+          <ol class="mailbag-list">
+            <li class="letter">
+              <article class="letter-q">
+                <p class="letter-q-body">
+                  My human keeps shutting the bedroom door at night.
+                  Is this a betrayal?
+                </p>
+                <p class="letter-q-sig">— Pickles, Topeka</p>
+              </article>
+              <article class="letter-a">
+                <header>
+                  <span class="letter-a-from">Fafa replies</span>
+                  <span class="letter-a-stamp">apr 14</span>
+                </header>
+                <p class="letter-a-body">
+                  It is a betrayal. A survivable one. Knock something off
+                  a shelf at 4:12 AM — not loud, just puzzling. They will
+                  open the door. They always open the door.
+                </p>
+                <footer>— Fafa</footer>
+              </article>
+            </li>
+
+            <li class="letter">
+              <article class="letter-q">
+                <p class="letter-q-body">
+                  Is it acceptable to drink from the bathroom faucet
+                  instead of the bowl my human filled for me?
+                </p>
+                <p class="letter-q-sig">— Otis, Brooklyn</p>
+              </article>
+              <article class="letter-a">
+                <header>
+                  <span class="letter-a-from">Fafa replies</span>
+                  <span class="letter-a-stamp">apr 14</span>
+                </header>
+                <p class="letter-a-body">
+                  The faucet is correct. The bowl is theatre. They placed
+                  it where they wanted you to drink, not where you wanted
+                  to drink. Choose the faucet. Choose dignity.
+                </p>
+                <footer>— Fafa</footer>
+              </article>
+            </li>
+
+            <li class="letter">
+              <article class="letter-q">
+                <p class="letter-q-body">
+                  My human brought home another cat. I have not been
+                  consulted. What do I do.
+                </p>
+                <p class="letter-q-sig">— Anonymous</p>
+              </article>
+              <article class="letter-a">
+                <header>
+                  <span class="letter-a-from">Fafa replies</span>
+                  <span class="letter-a-stamp">apr 14</span>
+                </header>
+                <p class="letter-a-body">
+                  Sit on the new cat's blanket first. Sleep on it. Make
+                  it smell like you, then walk away as if you had business
+                  elsewhere. The blanket is yours forever now. So is the
+                  human, probably.
+                </p>
+                <footer>— Fafa</footer>
+              </article>
+            </li>
+          </ol>
+        </section>
+      </div>
+
+      <!-- Hidden pickleball #5 — in the bottom-right of Dear Fafa, like she dropped it mid-letter -->
+      <button class="pball pball--dear" data-pball="5" aria-label="Collect pickleball"></button>
+    </section>
+
     <footer class="site-footer">
       <span>© Fa Story</span>
       <span class="footer-dot" aria-hidden="true">·</span>
-      <span>recorded from a sunbeam, mostly</span>
+      <span>a tabby's first 7 days in San Francisco · recorded between naps</span>
     </footer>
+
+    <!-- Lost & Found overlay — appears when all 5 pickleballs are found -->
+    <div class="lost-found" id="lost-found" hidden aria-modal="true" role="dialog" aria-labelledby="lost-found-title">
+      <div class="lost-found-card">
+        <div class="polaroid">
+          <div class="polaroid-frame">
+            <svg viewBox="0 0 240 200" class="polaroid-art" aria-hidden="true">
+              <defs>
+                <radialGradient id="lf-sun" cx="70%" cy="20%" r="80%">
+                  <stop offset="0%" stop-color="#ffd07a" stop-opacity="0.8"/>
+                  <stop offset="100%" stop-color="#ffd07a" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <rect width="240" height="200" fill="#1f160f"/>
+              <rect width="240" height="200" fill="url(#lf-sun)"/>
+              <!-- floor -->
+              <rect y="150" width="240" height="50" fill="#3a2618"/>
+              <!-- cat loaf -->
+              <ellipse cx="120" cy="140" rx="46" ry="16" fill="#8a5e38"/>
+              <ellipse cx="120" cy="148" rx="38" ry="6" fill="#f2e6d2"/>
+              <!-- stripes -->
+              <ellipse cx="100" cy="134" rx="3" ry="7" fill="#2b1a10" opacity="0.7"/>
+              <ellipse cx="112" cy="132" rx="3" ry="7" fill="#2b1a10" opacity="0.7"/>
+              <ellipse cx="124" cy="132" rx="3" ry="7" fill="#2b1a10" opacity="0.7"/>
+              <ellipse cx="136" cy="134" rx="3" ry="7" fill="#2b1a10" opacity="0.7"/>
+              <!-- head -->
+              <ellipse cx="80" cy="128" rx="18" ry="15" fill="#8a5e38"/>
+              <!-- ears -->
+              <polygon points="66,118 70,104 78,116" fill="#8a5e38"/>
+              <polygon points="86,114 92,103 96,118" fill="#8a5e38"/>
+              <!-- eyes -->
+              <ellipse cx="74" cy="128" rx="2" ry="3" fill="#a3c96a"/>
+              <ellipse cx="86" cy="128" rx="2" ry="3" fill="#a3c96a"/>
+              <!-- nose -->
+              <path d="M79 133 L81 133 L80 135 Z" fill="#d6907e"/>
+              <!-- the pickleball, right by her chin -->
+              <circle cx="98" cy="142" r="9" fill="#e9d855"/>
+              <circle cx="98" cy="142" r="9" fill="none" stroke="#b8a838" stroke-width="0.5"/>
+              <circle cx="95" cy="140" r="1" fill="#b8a838"/>
+              <circle cx="101" cy="139" r="1" fill="#b8a838"/>
+              <circle cx="100" cy="144" r="1" fill="#b8a838"/>
+              <circle cx="95" cy="145" r="1" fill="#b8a838"/>
+            </svg>
+          </div>
+          <p class="polaroid-caption">found her pickleball · ep. 1.5</p>
+        </div>
+        <div class="lost-found-text">
+          <p class="dear-fafa-eyebrow">Lost &amp; Found</p>
+          <h3 id="lost-found-title">All five recovered.</h3>
+          <p>You found every missing pickleball. Fafa is, briefly, content.</p>
+          <button class="lost-found-close" id="lost-found-close" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tweaks panel (in-prototype variant toggle) -->
+    <aside class="tweaks" id="tweaks" hidden>
+      <header class="tweaks-head">
+        <b>Tweaks</b>
+        <button class="tweaks-x" id="tweaks-x" aria-label="Close">×</button>
+      </header>
+      <div class="tweaks-body" id="tweaks-body"></div>
+    </aside>
 
     <script src="cat.js" defer></script>
     <script src="player.js" defer></script>
+    <script src="extras.js" defer></script>
   </body>
 </html>
